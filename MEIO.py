@@ -36,7 +36,6 @@ if "params" not in st.session_state:
 # -------------------------------------------------------------------
 st.sidebar.header("Data Inputs")
 
-uploaded_any = False
 
 def load_default_or_uploaded(label_key: str, display_name: str):
     """
@@ -203,10 +202,12 @@ def method5_compute_ss(
 
     return df
 
+
 # -------------------------------------------------------------------
 # DATA PREPARATION (JOINING TABLES)
 # -------------------------------------------------------------------
 st.subheader("Data Status")
+
 
 def show_df_info(label: str, df: pd.DataFrame | None):
     if df is None:
@@ -215,6 +216,7 @@ def show_df_info(label: str, df: pd.DataFrame | None):
         st.markdown(
             f"- **{label}**: ✅ {df.shape[0]} rows, {df.shape[1]} columns"
         )
+
 
 show_df_info("Sales History (24m)", st.session_state.dataframes["sales_history"])
 show_df_info("Products Master", st.session_state.dataframes["products_master"])
@@ -263,16 +265,24 @@ if join_key is None:
 
 st.info(f"Using `{join_key}` as the primary key for the MEIO aggregation.")
 
-# Merge everything step by step on the chosen key.
-df_working = sales_hist.copy()
 
-def safe_merge(left, right, key, how="left", suffix):
+def safe_merge(left: pd.DataFrame,
+               right: pd.DataFrame,
+               key: str,
+               how: str = "left",
+               suffix: str = "") -> pd.DataFrame:
+    """
+    Merge two dataframes on `key`, renaming overlapping columns in `right`
+    (except for the key) with the provided suffix.
+    """
     common_cols = list(set(left.columns).intersection(set(right.columns)) - {key})
     right_renamed = right.rename(
         columns={c: f"{c}{suffix}" for c in common_cols}
     )
     return left.merge(right_renamed, on=key, how=how)
 
+
+df_working = sales_hist.copy()
 df_working = safe_merge(df_working, sales_fcst, join_key, how="left", suffix="_fcst")
 df_working = safe_merge(df_working, prod_master, join_key, how="left", suffix="_pm")
 df_working = safe_merge(df_working, prod_lifecycle, join_key, how="left", suffix="_pl")
@@ -317,7 +327,6 @@ if compute_btn:
     # Simple filters
     col1, col2 = st.columns(2)
     with col1:
-        unique_keys = sorted(result_view[join_key].dropna().astype(str).unique())
         search_term = st.text_input("Filter material_shop (contains):", "")
     with col2:
         min_ss_filter = st.number_input(
